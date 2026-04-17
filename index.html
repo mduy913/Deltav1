@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>DELTA PROXY - V82 VIP PRICE</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { --bg: #050508; --cyan: #00f2ff; --gold: #ffcc00; --card: #11111d; --red: #ff3131; --border: #2a2a3a; --vip: #ff00ff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
+        .box { background: var(--card); border-radius: 16px; border: 1px solid var(--border); padding: 18px; margin-bottom: 15px; }
+        h2, h4 { margin: 0 0 15px 0; text-align: center; color: var(--cyan); text-transform: uppercase; }
+        input, textarea { width: 100%; padding: 12px; margin: 5px 0; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; outline: none; font-size: 13px; }
+        button { border: none; padding: 14px; border-radius: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; font-size: 12px; transition: 0.2s; }
+        button:disabled { opacity: 0.2; cursor: not-allowed; }
+        .btn-main { background: linear-gradient(135deg, var(--cyan), #0088ff); color: #000; width: 100%; }
+        .btn-gold { background: linear-gradient(135deg, var(--gold), #ff8800); color: #000; width: 100%; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        #adm-toggle { position: fixed; width: 60px; height: 60px; background: var(--red); border-radius: 50%; border: 3px solid #fff; z-index: 1000; display: none; align-items: center; justify-content: center; touch-action: none; }
+        #adm-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1001; display: none; overflow-y: auto; padding: 20px; }
+        .qr-card { display: none; background: #fff; padding: 20px; border-radius: 20px; text-align: center; color: #000; margin-top: 15px; }
+        .qr-card img { width: 200px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        td { padding: 10px 5px; border-bottom: 1px solid #1a1a2a; }
+        .badge-vip { background: var(--vip); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
+        .label-adm { font-size: 10px; color: #888; display: block; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="maint-msg" style="display:none; text-align:center; padding-top:100px;">
+        <h1 style="color:var(--red)">HỆ THỐNG ĐANG BẢO TRÌ</h1>
+        <p>Vui lòng quay lại sau!</p>
+    </div>
+
+    <div id="auth-ui" style="max-width:400px; margin:50px auto;">
+        <div class="box">
+            <h2>DELTA PROXY</h2>
+            <input type="text" id="au" placeholder="Tài khoản">
+            <input type="password" id="ap" placeholder="Mật khẩu">
+            <button class="btn-main" onclick="auth('login')">Vào Shop</button>
+            <button style="background:none; color:#555; width:100%; margin-top:10px; font-size:10px" onclick="auth('reg')">Chưa có nick? Đăng ký tại đây</button>
+        </div>
+    </div>
+
+    <div id="adm-toggle" onmousedown="dragStart(event)" ontouchstart="dragStart(event)">⚙️</div>
+
+    <div id="adm-modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+            <h3 style="color:var(--red)">QUẢN LÝ DELTA V82</h3>
+            <button onclick="document.getElementById('adm-modal').style.display='none'" style="background:var(--red); color:#fff; padding:5px 15px;">X</button>
+        </div>
+        
+        <div class="box">
+            <button id="btn-status" onclick="toggleShop()" style="margin-bottom:15px"></button>
+            
+            <span class="label-adm">GIÁ KHÁCH THƯỜNG</span>
+            <div class="grid-4">
+                <input type="number" id="adm-p-ngay" placeholder="Ngày">
+                <input type="number" id="adm-p-tuan" placeholder="Tuần">
+                <input type="number" id="adm-p-thang" placeholder="Tháng">
+                <input type="number" id="adm-p-nam" placeholder="Năm">
+            </div>
+
+            <span class="label-adm">GIÁ KHÁCH VIP</span>
+            <div class="grid-4">
+                <input type="number" id="adm-v-ngay" placeholder="VIP N">
+                <input type="number" id="adm-v-tuan" placeholder="VIP T">
+                <input type="number" id="adm-v-thang" placeholder="VIP Th">
+                <input type="number" id="adm-v-nam" placeholder="VIP Na">
+            </div>
+
+            <span class="label-adm">GIÁ QUAY RANDOM</span>
+            <div class="grid">
+                <input type="number" id="adm-p-roll" placeholder="Giá Quay Thường">
+                <input type="number" id="adm-v-roll" placeholder="Giá Quay VIP">
+            </div>
+            <button class="btn-main" style="margin-top:15px" onclick="saveSettings()">LƯU TẤT CẢ GIÁ</button>
+        </div>
+
+        <div class="box">
+            <h4>DUYỆT NẠP & VIP</h4>
+            <div id="adm-pay-list"></div>
+            <div style="overflow-x:auto; margin-top:15px"><table id="adm-user-list"></table></div>
+        </div>
+    </div>
+
+    <div id="shop-ui" style="display:none; max-width:550px; margin:auto;">
+        <div class="box">
+            <div style="display:flex; justify-content:space-between">
+                <span>Sếp: <b id="u-id"></b> <span id="vip-tag"></span></span>
+                <span>Ví: <b id="u-bl" style="color:var(--gold)">0</b>đ</span>
+            </div>
+            <input type="number" id="n-amt" placeholder="Nhập số tiền...">
+            <button class="btn-gold" onclick="nap()">NẠP TIỀN</button>
+            <div id="qr-display" class="qr-card">
+                <img id="qr-img" src="">
+                <p>Nội dung: <b id="txt-nd" style="color:red"></b></p>
+                <button class="btn-main" onclick="confirmNap()">XÁC NHẬN</button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h4>🎲 VÒNG QUAY MAY MẮN</h4>
+            <p id="roll-price-info" style="text-align:center; font-size:12px; margin-bottom:10px; color:var(--gold)"></p>
+            <div class="grid-4" style="grid-template-columns: repeat(3, 1fr);">
+                <button class="btn-gold shop-btn" onclick="roll('tuan')">QUAY TUẦN</button>
+                <button class="btn-gold shop-btn" onclick="roll('thang')">QUAY THÁNG</button>
+                <button class="btn-gold shop-btn" onclick="roll('nam')">QUAY NĂM</button>
+            </div>
+            <div id="roll-res" style="text-align:center; margin-top:10px; color:var(--cyan); font-weight:bold"></div>
+        </div>
+
+        <div class="box">
+            <h4>🛒 CỬA HÀNG KEY</h4>
+            <div class="grid">
+                <button class="btn-main shop-btn" onclick="buy('ngay')">GÓI NGÀY (<span id="s-ngay">0</span>)<br><small id="pr-ngay"></small></button>
+                <button class="btn-main shop-btn" onclick="buy('tuan')">GÓI TUẦN (<span id="s-tuan">0</span>)<br><small id="pr-tuan"></small></button>
+                <button class="btn-main shop-btn" onclick="buy('thang')">GÓI THÁNG (<span id="s-thang">0</span>)<br><small id="pr-thang"></small></button>
+                <button class="btn-main shop-btn" onclick="buy('nam')">GÓI NĂM (<span id="s-nam">0</span>)<br><small id="pr-nam"></small></button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h4 style="margin:0">LỊCH SỬ GIAO DỊCH</h4>
+            <table style="margin-top:10px"><tbody id="h-list"></tbody></table>
+        </div>
+    </div>
+
+<script>
+    const firebaseConfig = { databaseURL: "https://shopmduy-default-rtdb.asia-southeast1.firebasedatabase.app" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let curU, curUID, settings = {}, shopOpen = true, isVIP = false;
+
+    function auth(type) {
+        const u = document.getElementById('au').value.trim().toLowerCase(), p = document.getElementById('ap').value;
+        if(!u || !p) return alert("Điền đủ sếp ơi!");
+        if(type === 'reg') {
+            db.ref('users/'+u).set({password:p, balance:0, role:'user', isVIP:false, uid:"U"+Date.now()}).then(()=>alert("Xong!"));
+        } else {
+            db.ref('users/'+u).once('value', s => {
+                const d = s.val();
+                if(d && d.password === p) {
+                    curU = u; curUID = d.uid;
+                    db.ref('system/open').on('value', st => {
+                        shopOpen = st.val();
+                        if(!shopOpen && d.role !== 'admin') {
+                            document.getElementById('maint-msg').style.display='block';
+                            document.getElementById('auth-ui').style.display='none';
+                        } else {
+                            document.getElementById('auth-ui').style.display='none';
+                            document.getElementById('shop-ui').style.display='block';
+                            document.getElementById('u-id').innerText = u.toUpperCase();
+                            if(d.role === 'admin') { document.getElementById('adm-toggle').style.display='flex'; initAdmin(); }
+                            db.ref('users/'+u).on('value', uSnap => {
+                                const uData = uSnap.val();
+                                isVIP = uData.isVIP || false;
+                                document.getElementById('u-bl').innerText = (uData.balance||0).toLocaleString();
+                                document.getElementById('vip-tag').innerHTML = isVIP ? '<span class="badge-vip">V.I.P</span>' : '';
+                                updatePriceUI();
+                            });
+                            initShop();
+                        }
+                    });
+                } else alert("Sai tài khoản!");
+            });
+        }
+    }
+
+    function updatePriceUI() {
+        const prefix = isVIP ? 'v_' : 'p_';
+        ['ngay','tuan','thang','nam'].forEach(t => {
+            const price = settings[prefix + t] || 0;
+            document.getElementById('pr-'+t).innerText = price.toLocaleString() + "đ";
+        });
+        const rollPrice = isVIP ? (settings.v_roll || 0) : (settings.p_roll || 0);
+        document.getElementById('roll-price-info').innerText = `Giá quay: ${rollPrice.toLocaleString()}đ` + (isVIP ? " (Giá VIP)" : "");
+        
+        const btns = document.querySelectorAll('.shop-btn');
+        btns.forEach(b => b.disabled = !shopOpen);
+    }
+
+    function initShop() {
+        db.ref('system/settings').on('value', s => { settings = s.val() || {}; updatePriceUI(); });
+        ['ngay','tuan','thang','nam'].forEach(t => db.ref('key_store/'+t).on('value', s => document.getElementById('s-'+t).innerText = s.numChildren()));
+        db.ref('history_pay/'+curUID).on('value', h => {
+            const t = document.getElementById('h-list'); t.innerHTML = "";
+            h.forEach(c => { const i = c.val(); t.innerHTML = `<tr><td>${i.time}</td><td><b>${i.status}</b></td></tr>` + t.innerHTML; });
+        });
+    }
+
+    function roll(t) {
+        if(!shopOpen && curU !== 'admin') return;
+        const p = isVIP ? settings.v_roll : settings.p_roll;
+        db.ref('users/'+curU+'/balance').once('value', s => {
+            let b = s.val() || 0; if(b < p) return alert("Hết tiền!");
+            db.ref('users/'+curU+'/balance').set(b - p);
+            document.getElementById('roll-res').innerText = "⌛ Đang quay...";
+            setTimeout(() => {
+                db.ref('key_store/'+t).limitToFirst(1).once('value', snap => {
+                    if(!snap.exists()) return document.getElementById('roll-res').innerText = "❌ Hết key!";
+                    let kID = Object.keys(snap.val())[0], kV = snap.val()[kID];
+                    db.ref('key_store/'+t+'/'+kID).remove();
+                    db.ref('history_pay/'+curUID).push({time:new Date().toLocaleTimeString(), status:kV});
+                    document.getElementById('roll-res').innerText = "🔥 TRÚNG: " + kV;
+                });
+            }, 1000);
+        });
+    }
+
+    function buy(t) {
+        if(!shopOpen && curU !== 'admin') return;
+        const p = isVIP ? settings['v_'+t] : settings['p_'+t];
+        db.ref('users/'+curU+'/balance').once('value', s => {
+            let b = s.val() || 0; if(b < p) return alert("Hết tiền!");
+            db.ref('key_store/'+t).limitToFirst(1).once('value', snap => {
+                if(!snap.exists()) return alert("Hết hàng!");
+                db.ref('users/'+curU+'/balance').set(b - p);
+                let kID = Object.keys(snap.val())[0], kV = snap.val()[kID];
+                db.ref('key_store/'+t+'/'+kID).remove();
+                db.ref('history_pay/'+curUID).push({time:new Date().toLocaleTimeString(), status:kV});
+            });
+        });
+    }
+
+    function initAdmin() {
+        document.getElementById('adm-toggle').onclick = () => document.getElementById('adm-modal').style.display='block';
+        db.ref('system/open').on('value', s => {
+            const btn = document.getElementById('btn-status');
+            btn.innerText = s.val() ? "HỆ THỐNG: MỞ" : "HỆ THỐNG: ĐÓNG";
+            btn.style.background = s.val() ? "var(--cyan)" : "var(--red)";
+        });
+        db.ref('bank_requests').on('value', s => {
+            const l = document.getElementById('adm-pay-list'); l.innerHTML = "";
+            s.forEach(c => { const r = c.val(); 
+                l.innerHTML += `<div class="box" style="padding:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${r.user}: ${r.amount}đ</span>
+                    <div>
+                        <button onclick="db.ref('users/${r.user}/balance').transaction(v=>(v||0)+${r.amount}); db.ref('bank_requests/${c.key}').remove()" style="background:var(--cyan); padding:5px 10px; font-size:10px">DUYỆT</button>
+                        <button onclick="db.ref('bank_requests/${c.key}').remove()" style="background:var(--red); padding:5px 10px; font-size:10px">HỦY</button>
+                    </div>
+                </div>`;
+            });
+        });
+        db.ref('users').on('value', s => {
+            const l = document.getElementById('adm-user-list'); l.innerHTML = "<tr><th>User</th><th>VIP</th><th>Ví</th></tr>";
+            s.forEach(c => { const u = c.val();
+                l.innerHTML += `<tr><td>${c.key}</td><td><input type="checkbox" ${u.isVIP?'checked':''} onchange="db.ref('users/${c.key}/isVIP').set(this.checked)"></td><td>${(u.balance||0).toLocaleString()}</td></tr>`; 
+            });
+        });
+    }
+
+    function toggleShop() { db.ref('system/open').set(!shopOpen); }
+    function saveSettings() {
+        db.ref('system/settings').update({
+            p_ngay: Number(document.getElementById('adm-p-ngay').value),
+            p_tuan: Number(document.getElementById('adm-p-tuan').value),
+            p_thang: Number(document.getElementById('adm-p-thang').value),
+            p_nam: Number(document.getElementById('adm-p-nam').value),
+            v_ngay: Number(document.getElementById('adm-v-ngay').value),
+            v_tuan: Number(document.getElementById('adm-v-tuan').value),
+            v_thang: Number(document.getElementById('adm-v-thang').value),
+            v_nam: Number(document.getElementById('adm-v-nam').value),
+            p_roll: Number(document.getElementById('adm-p-roll').value),
+            v_roll: Number(document.getElementById('adm-v-roll').value)
+        }).then(() => alert("Đã lưu giá mới!"));
+    }
+    function nap() {
+        const amt = Number(document.getElementById('n-amt').value); if(amt < 1000) return alert("Min 1k");
+        const nd = `NAP ${curU.toUpperCase()}`;
+        document.getElementById('qr-img').src = `https://img.vietqr.io/image/mbbank-0588807300000-compact2.png?amount=${amt}&addInfo=${nd}`;
+        document.getElementById('txt-nd').innerText = nd;
+        document.getElementById('qr-display').style.display = 'block';
+        db.ref('bank_requests').push({user:curU, amount:amt});
+    }
+    function confirmNap() { alert("Đã gửi!"); document.getElementById('qr-display').style.display='none'; }
+
+    let offset = [0,0], isDown = false, el = document.getElementById('adm-toggle');
+    function dragStart(e) { isDown = true; let x = e.clientX || e.touches[0].clientX; let y = e.clientY || e.touches[0].clientY; offset = [el.offsetLeft - x, el.offsetTop - y]; }
+    document.addEventListener('mousemove', dragMove); document.addEventListener('touchmove', dragMove, {passive: false});
+    function dragMove(e) { if (!isDown) return; let x = e.clientX || e.touches[0].clientX; let y = e.clientY || e.touches[0].clientY; el.style.left = (x + offset[0]) + 'px'; el.style.top  = (y + offset[1]) + 'px'; }
+    document.addEventListener('mouseup', () => isDown = false); document.addEventListener('touchend', () => isDown = false);
+</script>
+</body>
+</html>
